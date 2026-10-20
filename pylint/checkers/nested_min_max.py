@@ -52,10 +52,7 @@ class NestedMinMaxChecker(BaseChecker):
             return False
 
         inferred = safe_infer(node.func)
-        return (
-            isinstance(inferred, nodes.FunctionDef)
-            and inferred.qname() in cls.FUNC_NAMES
-        )
+        return isinstance(inferred, nodes.FunctionDef) and inferred.qname() in cls.FUNC_NAMES
 
     @classmethod
     def get_redundant_calls(cls, node: nodes.Call) -> list[nodes.Call]:
@@ -67,7 +64,7 @@ class NestedMinMaxChecker(BaseChecker):
                 and arg.func.name == node.func.name
                 # Nesting is useful for finding the maximum in a matrix.
                 # Allow: max(max([[1, 2, 3], [4, 5, 6]]))
-                # Meaning, redunant call only if parent max call has more than 1 arg.
+                # Meaning, redundant call only if parent max call has more than 1 arg.
                 and len(arg.parent.args) > 1
             )
         ]
@@ -86,15 +83,11 @@ class NestedMinMaxChecker(BaseChecker):
             for i, arg in enumerate(fixed_node.args):
                 # Exclude any calls with generator expressions as there is no
                 # clear better suggestion for them.
-                if isinstance(arg, nodes.Call) and any(
-                    isinstance(a, nodes.GeneratorExp) for a in arg.args
-                ):
+                if isinstance(arg, nodes.Call) and any(isinstance(a, nodes.GeneratorExp) for a in arg.args):
                     return
 
                 if arg in redundant_calls:
-                    fixed_node.args = (
-                        fixed_node.args[:i] + arg.args + fixed_node.args[i + 1 :]
-                    )
+                    fixed_node.args = fixed_node.args[:i] + arg.args + fixed_node.args[i + 1 :]
                     break
 
             redundant_calls = self.get_redundant_calls(fixed_node)
@@ -117,11 +110,7 @@ class NestedMinMaxChecker(BaseChecker):
                         end_col_offset=0,
                     )
                     splat_node.value = arg
-                    fixed_node.args = (
-                        fixed_node.args[:idx]
-                        + [splat_node]
-                        + fixed_node.args[idx + 1 : idx]
-                    )
+                    fixed_node.args = fixed_node.args[:idx] + [splat_node] + fixed_node.args[idx + 1 : idx]
 
         self.add_message(
             "nested-min-max",
@@ -136,14 +125,10 @@ class NestedMinMaxChecker(BaseChecker):
         """
         # Support sequence addition (operator __add__)
         if isinstance(arg, nodes.BinOp) and arg.op == "+":
-            return self._is_splattable_expression(
-                arg.left
-            ) and self._is_splattable_expression(arg.right)
+            return self._is_splattable_expression(arg.left) and self._is_splattable_expression(arg.right)
         # Support dict merge (operator __or__ in Python 3.9)
         if isinstance(arg, nodes.BinOp) and arg.op == "|" and PY39_PLUS:
-            return self._is_splattable_expression(
-                arg.left
-            ) and self._is_splattable_expression(arg.right)
+            return self._is_splattable_expression(arg.left) and self._is_splattable_expression(arg.right)
 
         inferred = safe_infer(arg)
         if inferred and inferred.pytype() in {"builtins.list", "builtins.tuple"}:
